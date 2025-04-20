@@ -1,40 +1,83 @@
 import express from 'express';
-import {
-  createJob,
-  getAllJobs,
-  getJobById,
-  updateJob,
-  deleteJob,
-} from '../controllers/jobController.js'; // Import controller functions
-import { validateJobData } from '../middleware/validateJobData.js'; // Import validation middleware
+import Job from '../models/jobModel.js'; // Import your Job model
+import validateJob from '../middleware/validateJob.js'; // Import validation middleware (default import)
 
 const router = express.Router();
 
-// @route   GET /api/jobs
-// @desc    Get all jobs
-// @access  Public
-router.get('/', getAllJobs);
+// POST: Create a new job with validation
+router.post('/', validateJob, async (req, res) => {
+  const { title, description, company, location } = req.body;
 
-// @route   GET /api/jobs/:id
-// @desc    Get job by ID
-// @access  Public
-router.get('/:id', getJobById);
+  // Create a new job
+  const job = new Job({
+    title,
+    description,
+    company,
+    location,
+  });
 
-// @route   POST /api/jobs
-// @desc    Create a new job
-// @access  Public
-// Using validation middleware for data validation before creating the job
-router.post('/', validateJobData, createJob);
+  try {
+    // Save the job to the database
+    const savedJob = await job.save();
+    res.status(201).json(savedJob);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
-// @route   PUT /api/jobs/:id
-// @desc    Update job by ID
-// @access  Public
-// Using validation middleware for data validation before updating the job
-router.put('/:id', validateJobData, updateJob);
+// GET: Get all jobs
+router.get('/', async (req, res) => {
+  try {
+    const jobs = await Job.find();  // Get all jobs from the database
+    res.status(200).json(jobs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
-// @route   DELETE /api/jobs/:id
-// @desc    Delete job by ID
-// @access  Public
-router.delete('/:id', deleteJob);
+// GET: Get a specific job by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);  // Find job by ID
+    if (job) {
+      res.status(200).json(job);
+    } else {
+      res.status(404).json({ message: 'Job not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT: Update a job by ID with validation
+router.put('/:id', validateJob, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    // Update the job
+    const updatedJob = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.status(200).json(updatedJob);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// DELETE: Delete a job by ID
+router.delete('/:id', async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    await job.remove();  // Removes the job
+    res.status(200).json({ message: 'Job deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 export default router;
